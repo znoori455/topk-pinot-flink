@@ -1,0 +1,75 @@
+#version: '3.8'
+
+services:
+
+  jobmanager:
+    image: flink:2.1.0-scala_2.12-java21
+    container_name: jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    volumes:
+      - ./target:/opt/flink/usrlib
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+    networks:
+      - topk-network
+
+  taskmanager:
+    image: flink:2.1.0-scala_2.12-java21
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    container_name: taskmanager
+    scale: 1
+    volumes:
+      - ./target:/opt/flink/usrlib
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2
+    networks:
+      - topk-network
+
+  # Query API Service
+  query-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: query-api
+    ports:
+      - "8080:8080"
+    environment:
+      PINOT_BROKER_URL: http://pinot-broker:8099
+#    depends_on:
+#      - pinot-broker
+    networks:
+      - topk-network
+
+  # Data Generator (for testing)
+  data-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.generator
+    container_name: data-generator
+#    depends_on:
+#      - kafka
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ORDERS_TO_GENERATE: 500
+    networks:
+      - topk-network
+
+networks:
+  topk-network:
+    driver: bridge
+    external: true
+
+volumes:
+  flink-checkpoints:
+  flink-savepoints:

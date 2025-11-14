@@ -1,0 +1,11 @@
+# Dockerfile.generator
+FROM openjdk:21-ea-12-jdk-slim
+
+WORKDIR /app
+
+COPY target/restaurant-topk-generator.jar /app/app.jar
+
+ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+ENV ORDERS_PER_SECOND=100
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

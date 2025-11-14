@@ -1,0 +1,69 @@
+{
+  "tableName": "orders_raw_upsert",
+  "tableType": "REALTIME",
+  "segmentsConfig": {
+    "timeColumnName": "timestamp",
+    "timeType": "MILLISECONDS",
+    "retentionTimeUnit": "DAYS",
+    "retentionTimeValue": "7",
+    "segmentPushType": "APPEND",
+    "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
+    "schemaName": "orders_raw_upsert",
+    "replication": "1",
+    "replicasPerPartition": "1"
+  },
+  "tableIndexConfig": {
+    "loadMode": "MMAP",
+    "sortedColumn": [
+      "restaurant_id",
+      "timestamp"
+    ],
+    "invertedIndexColumns": [
+      "menu_item_id",
+      "category_id",
+      "customer_id",
+      "order_id"
+    ],
+    "noDictionaryColumns": [],
+    "rangeIndexColumns": [
+      "timestamp"
+    ],
+    "bloomFilterColumns": [
+      "event_id",
+      "order_id"
+    ],
+    "streamConfigs": {
+      "streamType": "kafka",
+      "stream.kafka.topic.name": "restaurant-orders-raw",
+      "stream.kafka.broker.list": "kafka:9092",
+      "stream.kafka.consumer.type": "lowlevel",
+      "stream.kafka.consumer.prop.auto.offset.reset": "smallest",
+      "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+      "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.stream.kafka.KafkaJSONMessageDecoder",
+      "realtime.segment.flush.threshold.rows": "50000",
+      "realtime.segment.flush.threshold.time": "3600000"
+    }
+  },
+  "tenants": {},
+  "metadata": {},
+  "ingestionConfig": {
+    "transformConfigs": [
+      {
+        "columnName": "revenue_cents",
+        "transformFunction": "quantity * price_in_cents"
+      }
+    ],
+    "continueOnError": true,
+    "rowTimeValueCheck": true,
+    "segmentTimeValueCheck": false
+  },
+  "routing": {
+    "segmentPrunerTypes": [
+      "time",
+      "partition"
+    ]
+  },
+  "task": {
+    "taskTypeConfigsMap": {}
+  }
+}

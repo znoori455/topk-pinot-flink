@@ -1,0 +1,56 @@
+{
+  "schemaName": "orders_raw_upsert",
+  "dimensionFieldSpecs": [
+    {
+      "name": "event_id",
+      "dataType": "STRING"
+    },
+    {
+      "name": "order_id",
+      "dataType": "STRING"
+    },
+    {
+      "name": "customer_id",
+      "dataType": "STRING"
+    },
+    {
+      "name": "restaurant_id",
+      "dataType": "STRING"
+    },
+    {
+      "name": "menu_item_id",
+      "dataType": "STRING"
+    },
+    {
+      "name": "menu_item_name",
+      "dataType": "STRING"
+    },
+    {
+      "name": "category_id",
+      "dataType": "STRING"
+    }
+  ],
+  "metricFieldSpecs": [
+    {
+      "name": "quantity",
+      "dataType": "INT"
+    },
+    {
+      "name": "price_in_cents",
+      "dataType": "INT"
+    },
+    {
+      "name": "revenue_cents",
+      "dataType": "LONG",
+      "defaultNullValue": 0
+    }
+  ],
+  "dateTimeFieldSpecs": [
+    {
+      "name": "timestamp",
+      "dataType": "TIMESTAMP",
+      "format": "1:MILLISECONDS:EPOCH",
+      "granularity": "1:MILLISECONDS"
+    }
+  ]
+}

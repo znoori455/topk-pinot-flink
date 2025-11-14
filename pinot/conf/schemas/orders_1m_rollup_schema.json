@@ -1,0 +1,62 @@
+{
+  "schemaName": "orders_1m_rollup",
+  "dimensionFieldSpecs": [
+    {
+      "name": "restaurant_id",
+      "dataType": "STRING"
+    },
+    {
+      "name": "menu_item_id",
+      "dataType": "STRING"
+    },
+    {
+      "name": "menu_item_name",
+      "dataType": "STRING"
+    },
+    {
+      "name": "category_id",
+      "dataType": "STRING"
+    },
+    {
+      "name": "window_start_1m",
+      "dataType": "LONG"
+    },
+    {
+      "name": "hour_of_day",
+      "dataType": "INT"
+    },
+    {
+      "name": "day_of_week",
+      "dataType": "INT"
+    }
+  ],
+  "metricFieldSpecs": [
+    {
+      "name": "sum_quantity",
+      "dataType": "LONG",
+      "defaultNullValue": 0
+    },
+    {
+      "name": "sum_revenue_cents",
+      "dataType": "LONG",
+      "defaultNullValue": 0
+    },
+    {
+      "name": "order_count",
+      "dataType": "LONG",
+      "defaultNullValue": 0
+    },
+    {
+      "name": "unique_customers_hll",
+      "dataType": "BYTES"
+    }
+  ],
+  "dateTimeFieldSpecs": [
+    {
+      "name": "window_start_ts",
+      "dataType": "TIMESTAMP",
+      "format": "1:MILLISECONDS:EPOCH",
+      "granularity": "1:MILLISECONDS"
+    }
+  ]
+}

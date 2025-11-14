@@ -1,0 +1,85 @@
+{
+  "tableName": "orders_1m_rollup",
+  "tableType": "REALTIME",
+  "segmentsConfig": {
+    "timeColumnName": "window_start_ts",
+    "timeType": "MILLISECONDS",
+    "retentionTimeUnit": "DAYS",
+    "retentionTimeValue": "30",
+    "segmentPushType": "APPEND",
+    "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
+    "schemaName": "orders_1m_rollup",
+    "replication": "1",
+    "replicasPerPartition": "1"
+  },
+  "tableIndexConfig": {
+    "loadMode": "MMAP",
+    "sortedColumn": [
+      "restaurant_id",
+      "window_start_1m"
+    ],
+    "invertedIndexColumns": [
+      "menu_item_id",
+      "category_id"
+    ],
+    "rangeIndexColumns": [
+      "window_start_ts",
+      "window_start_1m"
+    ],
+    "starTreeIndexConfigs": [
+      {
+        "dimensionsSplitOrder": [
+          "restaurant_id",
+          "category_id",
+          "menu_item_id",
+          "hour_of_day",
+          "day_of_week"
+        ],
+        "functionColumnPairs": [
+          "SUM__sum_revenue_cents",
+          "SUM__sum_quantity",
+          "SUM__order_count"
+        ],
+        "maxLeafRecords": 10000
+      }
+    ],
+    "aggregateMetrics": true,
+    "streamConfigs": {
+      "streamType": "kafka",
+      "stream.kafka.topic.name": "restaurant-orders-1m-rollup",
+      "stream.kafka.broker.list": "kafka:9092",
+      "stream.kafka.consumer.type": "lowlevel",
+      "stream.kafka.consumer.prop.auto.offset.reset": "smallest",
+      "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+      "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.stream.kafka.KafkaJSONMessageDecoder",
+      "realtime.segment.flush.threshold.rows": "100000",
+      "realtime.segment.flush.threshold.time": "7200000"
+    }
+  },
+  "tenants": {},
+  "metadata": {},
+  "ingestionConfig": {
+    "continueOnError": true,
+    "rowTimeValueCheck": true,
+    "segmentTimeValueCheck": false
+  },
+  "routing": {
+    "segmentPrunerTypes": [
+      "time",
+      "partition"
+    ]
+  },
+  "task": {
+    "taskTypeConfigsMap": {
+      "MergeRollupTask": {
+        "mergeType": "ROLLUP",
+        "bufferTimePeriod": "24h",
+        "bucketTimePeriod": "1h",
+        "sum_quantity.aggregationType": "sum",
+        "sum_revenue_cents.aggregationType": "sum",
+        "unique_customers_hll.aggregationType": "HLL_MERGE",
+        "rollupPreAggregate": true
+      }
+    }
+  }
+}

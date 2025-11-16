@@ -24,4 +24,4 @@ ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 # Dockerfile.flink
 FROM flink:2.1.0-scala_2.12-java21
 
-COPY target/restaurant-topk.jar /opt/flink/usrlib/restaurant-topk.jar
+COPY target/restaurant-topk-flink.jar /opt/flink/usrlib/restaurant-topk-flink.jar

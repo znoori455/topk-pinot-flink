@@ -43,7 +43,6 @@
         "maxLeafRecords": 10000
       }
     ],
-    "aggregateMetrics": true,
     "streamConfigs": {
       "streamType": "kafka",
       "stream.kafka.topic.name": "restaurant-orders-1m-rollup",
@@ -56,6 +55,10 @@
       "realtime.segment.flush.threshold.time": "7200000"
     }
   },
+  "dedupConfig": {
+    "dedupEnabled": true,
+    "hashFunction": "NONE"
+  },
   "tenants": {},
   "metadata": {},
   "ingestionConfig": {
@@ -64,10 +67,7 @@
     "segmentTimeValueCheck": false
   },
   "routing": {
-    "segmentPrunerTypes": [
-      "time",
-      "partition"
-    ]
+    "instanceSelectorType": "strictReplicaGroup"
   },
   "task": {
     "taskTypeConfigsMap": {

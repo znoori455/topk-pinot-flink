@@ -85,9 +85,9 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-application {
-    mainClass.set("com.restaurant.topk.flink.TopKStreamingJob.kt")
-}
+//application {
+//    mainClass.set("com.restaurant.topk.flink.TopKStreamingJob.kt")
+//}
 
 //tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
 //    archiveBaseName.set("restaurant-topk")
@@ -97,8 +97,10 @@ application {
 
 
 
-tasks.register<Jar>("shadowJar") {
-    archiveBaseName.set("restaurant-topk")
+// Common configuration for all JAR tasks
+fun Jar.configureJarTask(baseName: String, mainClass: String? = null) {
+    archiveBaseName.set(baseName)
+    destinationDirectory.set(file("target"))
     from(sourceSets.main.get().output)
 
     // Include runtime dependencies
@@ -109,54 +111,23 @@ tasks.register<Jar>("shadowJar") {
             .map { zipTree(it) }
     })
 
-    // Optional: merge META-INF/services
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-//
-//    manifest {
-//        attributes["Main-Class"] = "com.restaurant.topk.generator.DataGeneratorKt"
-//    }
+
+    mainClass?.let {
+        manifest {
+            attributes["Main-Class"] = it
+        }
+    }
 }
 
+tasks.register<Jar>("shadowJar") {
+    configureJarTask("restaurant-topk-flink", "com.restaurant.topk.flink.TopKStreamingJobKt")
+}
 
-// Define multiple JAR tasks with different main classes
 tasks.register<Jar>("shadowJarApi") {
-    archiveBaseName.set("restaurant-topk-api")
-    from(sourceSets.main.get().output)
-
-    manifest {
-        attributes["Main-Class"] = "com.restaurant.topk.api.TopKControllerKt"
-    }
-
-    // Include runtime dependencies
-    dependsOn(configurations.runtimeClasspath)
-    from({
-        configurations.runtimeClasspath.get()
-            .filter { it.name.endsWith("jar") }
-            .map { zipTree(it) }
-    })
-
-    // Optional: merge META-INF/services
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configureJarTask("restaurant-topk-api", "com.restaurant.topk.api.TopKControllerKt")
 }
 
 tasks.register<Jar>("shadowJarGenerator") {
-    archiveBaseName.set("restaurant-topk-generator")
-    from(sourceSets.main.get().output)
-
-    manifest {
-        attributes["Main-Class"] = "com.restaurant.topk.generator.DataGeneratorKt"
-    }
-
-    // Include runtime dependencies
-    dependsOn(configurations.runtimeClasspath)
-    from({
-        configurations.runtimeClasspath.get()
-            .filter { it.name.endsWith("jar") }
-            .map { zipTree(it) }
-    })
-
-    // Optional: merge META-INF/services
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configureJarTask("restaurant-topk-generator", "com.restaurant.topk.generator.DataGeneratorKt")
 }
-
-

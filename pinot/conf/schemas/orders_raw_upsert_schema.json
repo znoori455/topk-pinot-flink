@@ -1,5 +1,6 @@
 {
   "schemaName": "orders_raw_upsert",
+  "primaryKeyColumns": ["event_id"],
   "dimensionFieldSpecs": [
     {
       "name": "event_id",

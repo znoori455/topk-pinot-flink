@@ -37,19 +37,19 @@ services:
       - topk-network
 
   # Query API Service
-  query-api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
-    container_name: query-api
-    ports:
-      - "8080:8080"
-    environment:
-      PINOT_BROKER_URL: http://pinot-broker:8099
-#    depends_on:
-#      - pinot-broker
-    networks:
-      - topk-network
+#  query-api:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile.api
+#    container_name: query-api
+#    ports:
+#      - "8080:8080"
+#    environment:
+#      PINOT_BROKER_URL: http://pinot-broker:8099
+##    depends_on:
+##      - pinot-broker
+#    networks:
+#      - topk-network
 
   # Data Generator (for testing)
   data-generator:
@@ -57,11 +57,8 @@ services:
       context: .
       dockerfile: Dockerfile.generator
     container_name: data-generator
-#    depends_on:
-#      - kafka
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      ORDERS_TO_GENERATE: 500
+    env_file:
+      - .env
     networks:
       - topk-network
 

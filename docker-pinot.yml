@@ -1,8 +1,7 @@
-version: '3.7'
-
 services:
   pinot-zookeeper:
-    image: zookeeper:3.9.2
+    image: zookeeper:latest
+    hostname: pinot-zookeeper
     container_name: "pinot-zookeeper"
     restart: unless-stopped
     ports:
@@ -19,111 +18,151 @@ services:
       retries: 5
       start_period: 10s
 
-  # Kafka
   kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    hostname: kafka
+    image: apache/kafka:latest
     container_name: kafka
-    depends_on:
-      pinot-zookeeper:
-        condition: service_healthy
     ports:
-      - "9092:9092"
       - "9093:9093"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'pinot-zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      # KRaft settings
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9094
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # Listener settings
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093,CONTROLLER://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # Cluster ID (generate with: kafka-storage random-uuid)
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+      # Log settings
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
       - topk-network
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+
+  kafka-init:
+    image: apache/kafka:latest
+    container_name: kafka-init
+    networks:
+      - topk-network
+    entrypoint: ["bash", "-c"]
+    command: >
+      "sleep 15
+      &&
+      echo 'Creating topics...'
+      &&
+      cd opt/kafka/bin
+      &&
+      ./kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ${INPUT_TOPIC} --partitions ${TOPIC_PARTITIONS} --replication-factor 1
+      &&
+      ./kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ${RAW_PINOT_TOPIC} --partitions ${TOPIC_PARTITIONS} --replication-factor 1
+      &&
+      ./kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ${ROLLUP_PINOT_TOPIC} --partitions ${TOPIC_PARTITIONS} --replication-factor 1
+      &&
+      echo 'Topics created successfully!'
+      &&
+      ./kafka-topics.sh --bootstrap-server kafka:9092 --list
+      "
+      
 
 
   pinot-controller:
-    image: apachepinot/pinot:1.2.0
+    image: apachepinot/pinot:latest
     command: "StartController -zkAddress pinot-zookeeper:2181"
-    container_name: "pinot-controller"
+    container_name: pinot-controller
+    hostname: pinot-controller
     restart: unless-stopped
     ports:
       - "9000:9000"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xloggc:gc-pinot-controller.log"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log"
     depends_on:
-      pinot-zookeeper:
-        condition: service_healthy
-    networks:
-      - topk-network
+      - pinot-zookeeper
+      - kafka
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9000/health || exit 1"]
-      interval: 30s
+      test: [ "CMD-SHELL", "curl -f http://pinot-controller:9000/health || exit 1" ]
+      interval: 10s
       timeout: 10s
-      retries: 5
+      retries: 50
       start_period: 10s
     volumes:
       - pinot-controller-data:/tmp/data/controller
+    networks:
+      - topk-network
 
   pinot-broker:
-    image: apachepinot/pinot:1.2.0
+    image: apachepinot/pinot:latest
     command: "StartBroker -zkAddress pinot-zookeeper:2181"
-    container_name: "pinot-broker"
     restart: unless-stopped
+    container_name: "pinot-broker"
     ports:
+#      - "8096-8099:8099"
       - "8099:8099"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms4G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xloggc:gc-pinot-broker.log"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms4G -Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log"
     depends_on:
       pinot-controller:
         condition: service_healthy
-    networks:
-      - topk-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8099/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://pinot-broker:8099/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 30s
+    networks:
+      - topk-network
+#    deploy:
+#      mode: replicated
+#      replicas: ${TOPIC_PARTITIONS}
 
   pinot-server:
-    image: apachepinot/pinot:1.2.0
+    image: apachepinot/pinot:latest
     command: "StartServer -zkAddress pinot-zookeeper:2181"
-    container_name: "pinot-server"
     restart: unless-stopped
+    container_name: "pinot-server"
     ports:
+      - "8096:8096"
       - "8097:8097"
       - "8098:8098"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms4G -Xmx16G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xloggc:gc-pinot-server.log"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms4G -Xmx16G -XX:+UseG1GC -XX:MaxGCPauseMillis=200  -Xlog:gc:gc-pinot-server.log"
+#    healthcheck:
+#      test: [ "CMD-SHELL", "curl -f http://pinot-server:8097/health || exit 1" ]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+#      start_period: 10s
     depends_on:
-      pinot-broker:
+      pinot-controller:
         condition: service_healthy
-    networks:
-      - topk-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8097/health/readiness || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
     volumes:
       - pinot-server-data:/tmp/data/server
+    networks:
+      - topk-network
+#    deploy:
+#      mode: replicated
+#      replicas: ${TOPIC_PARTITIONS}
 
-  init-script:
+  pinot-init:
 #    image: alpine:3.20
     image: appropriate/curl  # or any image with the tools you need
     depends_on:
-      pinot-server:
+      pinot-broker:
         condition: service_healthy
     volumes:
       - ./pinot/entrypoint.sh:/init.sh
@@ -142,5 +181,7 @@ networks:
 
 volumes:
   kafka-data:
-  pinot-controller-data:
   pinot-server-data:
+  pinot-controller-data:
+
+

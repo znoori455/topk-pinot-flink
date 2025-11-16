@@ -1,3 +1,5 @@
+package com.restaurant.topk.generator
+
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
@@ -173,7 +175,7 @@ class DataGenerator(
 fun main(args: Array<String>) {
     val bootstrapServers =  System.getenv("KAFKA_BOOTSTRAP_SERVERS") ?: "localhost:9093"
     val topic = "restaurant-orders"
-    val eventCount = System.getenv("ORDERS_TO_GENERATE")?.toIntOrNull() ?: 5000
+    val eventCount = System.getenv("ORDERS_TO_GENERATE")?.toIntOrNull() ?: 3
     val delayMs = args.getOrNull(3)?.toLongOrNull() ?: 10L
 
     println("Kafka Bootstrap Servers: $bootstrapServers")

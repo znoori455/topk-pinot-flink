@@ -71,36 +71,31 @@ Order Events → Kafka → Flink (Dedup & Aggregate) → Kafka → Pinot → Que
 - Docker and Docker Compose
 - Java 11 or higher
 - Gradle 7.x or higher
-- At least 8GB RAM available for Docker
+- At least 8GB RAM available for Docker (Mandatory)
 
 ### Quick Start
 
-
-1. **Clone the repository**
 ```bash
- docker-compose -f docker-pinot.yml up
+ docker-compose -f docker-pinot.yml up -d
 ```
 
 ```bash
 ./gradlew clean shadowJar shadowJarApi shadowJarGenerator
-mkdir -p target
-cp build/libs/restaurant-topk.jar target/
-cp build/libs/restaurant-topk-api.jar target/
-cp build/libs/restaurant-topk-generator.jar target/
 ```
 
 ```bash
 docker-compose up -d jobmanager taskmanager
-docker exec jobmanager flink run \
-  -d \
-  -c com.restaurant.topk.flink.TopKStreamingJobKt \
-  /opt/flink/usrlib/restaurant-topk.jar
 ```
 
 ```bash
+docker exec jobmanager flink run \
+  -d \
+  -c com.restaurant.topk.flink.TopKStreamingJobKt \
+  /opt/flink/usrlib/restaurant-topk-flink.jar
 docker-compose up -d data-generator
 ```
 
+TODO: cleanup README below
 
 1. **Clone the repository**
 ```bash
@@ -177,7 +172,7 @@ sleep 15
 # 7. Submit Flink job
 docker exec flink-jobmanager flink run -d \
   -c com.restaurant.topk.flink.TopKStreamingJob.kt \
-  /opt/flink/usrlib/restaurant-topk.jar
+  /opt/flink/usrlib/restaurant-topk-flink.jar
 
 # 8. Start Query API and Data Generator
 docker-compose up -d query-api data-generator

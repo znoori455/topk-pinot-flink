@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.restaurant.topk.models.TopKResult
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.functions.AggregateFunction
 import org.apache.flink.api.common.functions.MapFunction
@@ -29,12 +29,16 @@ import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindo
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.clients.producer.ProducerRecord
 import java.io.Serializable
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
+
+// raw: order_id__menu_item_id OR event_id
+// 1m: restaurant_id__menu_item_id__524m
 // Data models
 data class OrderEvent(
     @field:JsonProperty("event_id") var eventId: String,
@@ -184,14 +188,14 @@ class RollupProcessFunction :
 }
 
 // Main Flink job
-class RestaurantOrderPipeline {
+class TopKStreamingJob {
 
     companion object {
         private val mapper: ObjectMapper = jacksonObjectMapper()
 
         @JvmStatic
         fun main(args: Array<String>) {
-            val pipeline = RestaurantOrderPipeline()
+            val pipeline = TopKStreamingJob()
             pipeline.run(args)
         }
     }
@@ -270,27 +274,20 @@ class RestaurantOrderPipeline {
         topic: String,
         kafkaBootstrap: String
     ) {
-        val kafkaSink= KafkaSink.builder<String>()
+        val kafkaSink= KafkaSink.builder<OrderEvent>()
             .setBootstrapServers(kafkaBootstrap)
-            .setRecordSerializer(
-                org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema.builder<String>()
-                    .setTopic(topic)
-                    .setValueSerializationSchema(SimpleStringSchema())
-                    .build()
-            )
+            .setRecordSerializer(OrderEventKafkaSerializer(topic))
+
 //            .setRecordSerializer(
-//                KafkaRecordSerializationSchema.builder<OrderEvent>()
+//                org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema.builder<String>()
 //                    .setTopic(topic)
-//                    .setValueSerializationSchema { event: OrderEvent ->
-//                        mapper.writeValueAsBytes(event)
-//                    }
+//                    .setValueSerializationSchema(SimpleStringSchema())
 //                    .build()
 //            )
             .setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG, "900000")
             .build()
 
         stream
-            .map(OrderEventSerializer())
             .sinkTo(kafkaSink)
             .name("Write to Pinot Raw Table (via Kafka)")
     }
@@ -320,6 +317,8 @@ class RestaurantOrderPipeline {
 
         val kafkaSink= KafkaSink.builder<String>()
             .setBootstrapServers(kafkaBootstrap)
+//            .setRecordSerializer(OrderEventKafkaSerializer(topic))
+
             .setRecordSerializer(
                 org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema.builder<String>()
                     .setTopic(topic)
@@ -345,6 +344,46 @@ class RestaurantOrderPipeline {
             .sinkTo(kafkaSink)
             .name("Write to Pinot Rollup Table (via Kafka)")
     }
+}
+
+class OrderEventKafkaSerializer(private val topic: String) :
+    KafkaRecordSerializationSchema<OrderEvent> {
+
+//    private val mapper = jacksonObjectMapper().registerKotlinModule()
+
+    @Transient
+    private var objectMapper: ObjectMapper? = null
+
+    private fun getMapper(): ObjectMapper {
+        if (objectMapper == null) {
+            objectMapper = jacksonObjectMapper().registerKotlinModule()
+        }
+        return objectMapper!!
+    }
+
+    override fun serialize(
+        element: OrderEvent,
+        context: KafkaRecordSerializationSchema.KafkaSinkContext,
+        timestamp: Long?
+    ): ProducerRecord<ByteArray, ByteArray> {
+
+        val key = element.eventId.toByteArray()
+        val value = getMapper().writeValueAsBytes(element)
+
+        return ProducerRecord(topic, key, value)
+    }
+
+//    override fun serialize(
+//        element: String?,
+//        context: KafkaRecordSerializationSchema.KafkaSinkContext?,
+//        timestamp: Long?
+//    ): ProducerRecord<ByteArray?, ByteArray?>? {
+//        TODO("Not yet implemented")
+//        val key = element.eventId.toByteArray()
+//        val value = mapper.writeValueAsBytes(element)
+//
+//        return ProducerRecord(topic, key, value)
+//    }
 }
 
 class OrderEventSerializer : MapFunction<OrderEvent, String> {
@@ -380,7 +419,7 @@ class RollupEventSerializer : MapFunction<RollupEvent, String> {
 }
 
 fun main(args: Array<String>) {
-    RestaurantOrderPipeline.main(args)
+    TopKStreamingJob.main(args)
 }
 
 

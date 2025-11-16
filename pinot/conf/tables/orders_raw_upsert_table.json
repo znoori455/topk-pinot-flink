@@ -1,6 +1,10 @@
 {
   "tableName": "orders_raw_upsert",
   "tableType": "REALTIME",
+  "dedupConfig": {
+    "dedupEnabled": true,
+    "hashFunction": "NONE"
+  },
   "segmentsConfig": {
     "timeColumnName": "timestamp",
     "timeType": "MILLISECONDS",
@@ -58,10 +62,7 @@
     "segmentTimeValueCheck": false
   },
   "routing": {
-    "segmentPrunerTypes": [
-      "time",
-      "partition"
-    ]
+    "instanceSelectorType": "strictReplicaGroup"
   },
   "task": {
     "taskTypeConfigsMap": {}
